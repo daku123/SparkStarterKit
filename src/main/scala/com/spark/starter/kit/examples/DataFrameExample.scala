@@ -1,3 +1,5 @@
+package com.spark.starter.kit.examples
+
 import org.apache.spark.sql.SparkSession
 
 object DataFrameExample extends Serializable {
