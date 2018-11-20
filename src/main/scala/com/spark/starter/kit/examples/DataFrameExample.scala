@@ -4,11 +4,13 @@ import org.apache.spark.sql.SparkSession
 
 object DataFrameExample extends Serializable {
   def main(args: Array[String]) = {
+    System.setProperty("hadoop.home.dir", "C:\\winutils")
 
     val spark = SparkSession
       .builder()
       .appName("Databricks Spark Example")
       .config("spark.sql.warehouse.dir", "/user/hive/warehouse")
+      .config("spark.master","local")
       .getOrCreate()
     import spark.implicits._
 

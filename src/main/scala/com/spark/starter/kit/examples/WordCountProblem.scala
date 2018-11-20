@@ -4,7 +4,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 object WordCountProblem extends Serializable {
   def main(args: Array[String]): Unit = {
-
+    System.setProperty("hadoop.home.dir", "C:\\winutils")
     val conf:SparkConf = new SparkConf().setAppName("Histogram").setMaster("local")
     conf.set("spark.driver.allowMultipleContexts", "true")
     val sc:SparkContext = new SparkContext(conf)
