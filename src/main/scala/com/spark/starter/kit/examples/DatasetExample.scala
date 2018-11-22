@@ -18,6 +18,8 @@ object DatasetExample {
     val flightDataset = flightData.as[Flight]
 
     flightDataset.filter(record => record.DEST_COUNTRY_NAME!="canada").show(5)
+    flightDataset.filter(record=>record.DEST_COUNTRY_NAME!="canada")
+      .map(data=>Flight(data.DEST_COUNTRY_NAME,data.ORIGIN_COUNTRY_NAME ,data.count + 5)).show(5)
   }
 
   case class Flight(DEST_COUNTRY_NAME:String,ORIGIN_COUNTRY_NAME:String,count:BigInt)
