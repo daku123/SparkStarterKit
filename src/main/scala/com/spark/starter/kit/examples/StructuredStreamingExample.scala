@@ -25,7 +25,6 @@ object StructuredStreamingExample {
 
     retailData.createGlobalTempView("retail_data")
      val retailSchema = retailData.schema
-
     /*retailData.selectExpr("CustomerId","(UnitPrice*Quantity) as total_cost","InvoiceDate").groupBy(col("CustomerId"),window(col("InvoiceDate"),"1 day"))
       .sum("total_cost").show(5)
 
@@ -38,9 +37,17 @@ object StructuredStreamingExample {
   /*
   read the data as streaming. The above code is for batch data.
    */
- streamingData(spark,retailSchema)
+    streamingData(spark,retailSchema)
+    //streamingDataNew(spark)
   }
 
+  /**
+    *  Currently this method is failing because of java.lang.IllegalStateException:
+    *  Cannot call methods on a stopped SparkContext.
+    * @param spark
+    * @param staticSchema
+    * @return
+    */
   def streamingData(spark:SparkSession,staticSchema:StructType)={
 
     val realTimeStreamingData = spark.readStream
@@ -58,12 +65,9 @@ object StructuredStreamingExample {
                                      .sum("total_cost")
 
      purchaseByCustomerPerHour
-                              .writeStream.format("memory")
+                              .writeStream.format("console")
                               .queryName("customer_purchases")
                               .outputMode("complete")
                               .start()
-
-
-
   }
 }
