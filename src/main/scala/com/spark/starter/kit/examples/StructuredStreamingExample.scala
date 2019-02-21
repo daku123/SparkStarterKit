@@ -1,6 +1,6 @@
 package com.spark.starter.kit.examples
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
 
@@ -8,37 +8,15 @@ import org.apache.spark.sql.types.StructType
 object StructuredStreamingExample {
 
   def main(args: Array[String]): Unit = {
-
     System.setProperty("hadoop.home.dir", "C:\\winutils")
-    val spark = SparkSession.builder()
-      .config("spark.sql.warehouse.dir", "/user/hive/warehouse")
-      .config("spark.master","local")
-      .getOrCreate()
-     import spark.implicits._
-     spark.conf.set("spark.sql.shuffle.partitions", "5")
+    val spark = getSparkSession()
+    spark.sparkContext.setLogLevel("ERROR")
+    streamingData(spark)
+  }
 
-    val retailData = spark.read.option("inferschema","true")
-      .option("header","true")
-      .csv("C:\\Users\\vishunath.sharma\\github\\Spark-The-Definitive-Guide\\data\\retail-data\\by-day\\*.csv")
-
-
-
-    retailData.createGlobalTempView("retail_data")
-     val retailSchema = retailData.schema
-    /*retailData.selectExpr("CustomerId","(UnitPrice*Quantity) as total_cost","InvoiceDate").groupBy(col("CustomerId"),window(col("InvoiceDate"),"1 day"))
-      .sum("total_cost").show(5)
-
-
-    retailData.selectExpr("CustomerId","(UnitPrice*Quantity) as total_cost","InvoiceDate","UnitPrice","Quantity")
-              .groupBy(col("CustomerId"),window(col("InvoiceDate"),"1 day"))
-              .agg(max(col("UnitPrice")),min("Quantity"))
-              .show(5)
-*/
-  /*
-  read the data as streaming. The above code is for batch data.
-   */
-    streamingData(spark,retailSchema)
-    //streamingDataNew(spark)
+  def getSparkSession(): SparkSession = {
+    SparkSession.builder().appName("Databricks Spark Example")
+      .config("spark.master", "local").getOrCreate()
   }
 
   /**
@@ -48,26 +26,28 @@ object StructuredStreamingExample {
     * @param staticSchema
     * @return
     */
-  def streamingData(spark:SparkSession,staticSchema:StructType)={
+  def streamingData(spark:SparkSession)={
 
-    val realTimeStreamingData = spark.readStream
-      .schema(staticSchema)
-      .option("inferschema","true")
-      .option("header","true")
-      .option("maxFilesPerTrigger","1")
-      .csv("C:\\Users\\vishunath.sharma\\github\\Spark-The-Definitive-Guide\\data\\retail-data\\by-day\\*.csv")
+    val staticJsonData = spark.read.format("json")
+                   .load("c:\\Users\\Vishunath.Sharma\\github\\Spark-The-Definitive-Guide\\data\\activity-data")
 
-     realTimeStreamingData.isStreaming
+    val streamData = spark.readStream.schema(getSchema(staticJsonData))
+                     .option("maxFilesPerTrigger",1)
+                     .json("c:\\Users\\Vishunath.Sharma\\github\\Spark-The-Definitive-Guide\\data\\activity-data")
 
-     val purchaseByCustomerPerHour = realTimeStreamingData
-                                     .selectExpr("CustomerId","(UnitPrice*Quantity) as total_cost","InvoiceDate")
-                                     .groupBy(col("CustomerId"),window(col("InvoiceDate"),"1 day"))
-                                     .sum("total_cost")
+    spark.conf.set("spark.sql.shuffle.partitions", 5)
 
-     purchaseByCustomerPerHour
-                              .writeStream.format("console")
-                              .queryName("customer_purchases")
-                              .outputMode("complete")
-                              .start()
+    val countQuery = streamData.writeStream.format("memory").queryName("count_analysis")
+              .outputMode("append").start()
+   // streamData.writeStream.outputMode("append").format("console").start().awaitTermination()
+    //spark.conf.set("spark.sql.shuffle.partitions", 5)
+
+streamData.groupBy("gt").count().writeStream.format("console")
+          .outputMode("complete").start().awaitTermination()
+    countQuery.awaitTermination()
+
+
   }
+
+  def getSchema(dataFrame:DataFrame):StructType={return dataFrame.schema}
 }
