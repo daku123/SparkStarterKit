@@ -19,13 +19,7 @@ object StructuredStreamingExample {
       .config("spark.master", "local").getOrCreate()
   }
 
-  /**
-    *  Currently this method is failing because of java.lang.IllegalStateException:
-    *  Cannot call methods on a stopped SparkContext.
-    * @param spark
-    * @param staticSchema
-    * @return
-    */
+
   def streamingData(spark:SparkSession)={
 
     val staticJsonData = spark.read.format("json")
@@ -42,8 +36,8 @@ object StructuredStreamingExample {
    // streamData.writeStream.outputMode("append").format("console").start().awaitTermination()
     //spark.conf.set("spark.sql.shuffle.partitions", 5)
 
-streamData.groupBy("gt").count().writeStream.format("console")
-          .outputMode("complete").start().awaitTermination()
+   streamData.groupBy("gt").count().writeStream.format("console")
+             .outputMode("complete").start().awaitTermination()
     countQuery.awaitTermination()
 
 
