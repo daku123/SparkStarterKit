@@ -27,10 +27,6 @@ object RockPaperScissorsAssignment {
     spark.read.option("sep", "\t").format("csv").schema(schema).load(filePath)
   }
 
-  /*case class Production(productionUnitId:String,batchId:String,itemProduced:String,itemDiscarded:String)
-  case class Complaints(invoiceId:Int,defectiveItem:String)
-  case class Sales(invoiceId:Int,customerId:String,itemSummery:String,batchId:String)*/
-
   def getProductionTableSchema():StructType={ StructType(List(StructField("productionUnitId",StringType,true),
                                               StructField("batchId",StringType,true),StructField("itemProduced",StringType,false),
                                               StructField("itemDiscarded",StringType,true)))
@@ -53,8 +49,11 @@ object RockPaperScissorsAssignment {
     val complaintsData = getDataFrame(spark,filePath+"\\Complaints.tsv",getComplaintTableSchema())
     val salesData = getDataFrame(spark,filePath+"\\Sales.tsv",getSalesTableSchema())
 
+
     val productionAndSalesJoin = productionData.join(salesData,"batchId")
     val allThreeJoined = complaintsData.join(productionAndSalesJoin,"invoiceId")
+
+    //report 1-->
 
     val getCount = udf((colValue:String,pattern:String) =>{
       val value = s"$pattern':\\s+[0-9]*".r
@@ -65,22 +64,55 @@ object RockPaperScissorsAssignment {
     val countOfComplainedItem = getCount(col("itemSummery"),col("defectiveItem"))
     val countOfDiscardedItem = getCount(col("itemDiscarded"),col("defectiveItem"))
     val totalItem = getCount(col("itemProduced"),col("defectiveItem"))
+    val additionOfTwoItem = countOfDiscardedItem + countOfComplainedItem
+    val finalResult = additionOfTwoItem*100/totalItem
 
-  //  allThreeJoined.where(col("invoiceId")=!=872013).show(10)
-   allThreeJoined.select(col("itemProduced"),totalItem,
-                         col("itemDiscarded"),countOfDiscardedItem,
-                         col("itemSummery"),countOfComplainedItem,
-                         col("defectiveItem"))
-                 .show(10)
-  //  println(extractValue("{'rock': 49,'paper':120}","rock"))
+    val countOfPaper = getCount(col("itemSummery"),col("paper"))
+    val countOfRock = getCount(col("itemSummery"),col("rock"))
+    val countOfScissor = getCount(col("itemSummery"),col("scissor"))
+
+    allThreeJoined.select(col("productionUnitId"),
+      col("defectiveItem"), bround(finalResult,2).alias("finalResult"),col("batchId")).show(50)
+
+
+
+    /// report 2 :-
+    val salesDataWithExtraColumn = salesData
+      .withColumn("paper",lit("paper"))
+      .withColumn("rock",lit("rock"))
+      .withColumn("scissor",lit("scissor"))
+      .withColumn("countOfPaper",countOfPaper)
+      .withColumn("countOfRock",countOfRock)
+      .withColumn("countOfScissor",countOfScissor)
+
+    val salesAndComplaintsJoin = salesDataWithExtraColumn.join(complaintsData.withColumn("invoiceId2",col("invoiceId")),Seq("invoiceId"),"left_outer")
+
+
+    salesAndComplaintsJoin.withColumn("cstGrp",col("customerId").substr(0,1)).groupBy($"cstGrp")
+      .agg(
+        count("invoiceId2").alias("numberOfComplaints"),
+        sum($"countOfPaper").alias("paper"),
+        sum($"countOfRock").alias("rock"),
+        sum($"countOfScissor").alias("scissor"))
+      .show(20)
+
+    // report 3:---
+    val getSumOfDefectedItem = udf((colValue:String) =>{
+
+      var sum:Long = 0;
+    val stripString = colValue.substring(1,colValue.length-1)
+    val arrayOfItems = stripString.split(",")
+      arrayOfItems.foreach(item=> sum+=item.split(":")(1).trim.toLong)
+      sum
+    }
+    )
+
+    val totalDefectedItemAtFactory = getSumOfDefectedItem(col("itemDiscarded"))
+    val defectedPrecent = max(totalDefectedItemAtFactory)*100/(sum($"customerReported")+max(totalDefectedItemAtFactory))
+    allThreeJoined.withColumn("defectedItem",totalDefectedItemAtFactory)
+      .withColumn("customerReported",countOfComplainedItem).groupBy("productionUnitId")
+      .agg(bround(defectedPrecent,2).alias("defectedPrecent")).show(20)
+
   }
-
-  def extractValue(colValue:String,pattern:String):Int={
-
-      val value = s"$pattern':\\s+[0-9]*".r
-    if (colValue.contains(pattern)) value.findFirstIn(colValue).mkString.split(":")(1).trim.toInt
-    else 0
-  }
-
 
 }

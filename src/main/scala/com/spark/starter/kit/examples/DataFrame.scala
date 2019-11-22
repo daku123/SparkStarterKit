@@ -17,6 +17,7 @@ object DataFrame  {
 
     spark.sparkContext.setLogLevel("ERROR")
 
+    usingDataFrameApi(spark)
     dataFrameOperations(spark)
 
   }
